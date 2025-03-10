@@ -42,9 +42,10 @@ def login_form():
         description="Password:"
     )
     supabase_key_input = widgets.Password(
-        placeholder="Enter your Supabase key (from you .env file)",
+        placeholder="Enter Supabase key (from .env file)",
         description="Supabase Key:",
-        style={'description_width': 'initial'}
+        style={'description_width': 'initial'},
+        layout=widgets.Layout(width='50%')
     )
     submit_button = widgets.Button(description="Submit")
     output = widgets.Output()
@@ -63,9 +64,9 @@ def login_form():
                 
             jwt_token, user_id = login(email, password, supabase_key)
             if jwt_token:
-                print("✅ Login successful! Credentials stored securely.")
+                print("✅ Login successful!")
             else:
-                print("❌ Login failed. Please check your credentials.")
+                print("Please try again.")
 
     # Bind function to button click
     submit_button.on_click(on_submit)
