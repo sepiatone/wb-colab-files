@@ -5,15 +5,11 @@ from hashlib import md5
 
 
 SUPABASE_URL = "https://udnmlcykctnahtnzmmmx.supabase.co"
-mid = 4
-eid = 1
 
 def generate_hash(mid, eid, iid, uid):
     return md5("-".join(map(str, [mid, eid, iid, uid])).encode()).hexdigest()
 
-def test_submit(iid, is_checked=True):
-    mid = 4
-    eid = 1
+def test_submit(iid, is_checked=True, mid=4, eid=1):
     load_dotenv()
     jwt_token = os.getenv("JWT")
     uid = os.getenv("UID")
