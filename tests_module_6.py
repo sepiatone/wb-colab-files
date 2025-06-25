@@ -1,5 +1,5 @@
 # import part2_intro_to_mech_interp.tests as tests
-# from . import submit
+from submit import test_submit
 import torch as t
 
 
