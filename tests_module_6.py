@@ -1,5 +1,5 @@
 # import part2_intro_to_mech_interp.tests as tests
-from . import submit
+# from . import submit
 import torch as t
 
 
@@ -8,7 +8,7 @@ def tester():
 
 def test1(attn_patterns_from_shorthand: t.Tensor, attn_patterns_from_full_name: t.Tensor):
     t.testing.assert_close(attn_patterns_from_shorthand, attn_patterns_from_full_name)
-    submit.test_submit(1, mid=6, eid=1)
+    test_submit(1, mid=6, eid=1)
     print("All tests in `test1` passed!")
 
 
