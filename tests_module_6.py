@@ -58,7 +58,12 @@ def get_log_probs(logits: Float[Tensor, "batch posn d_vocab"], tokens: Int[Tenso
     # We want to get logprobs[b, s, tokens[b, s+1]], in eindex syntax this looks like:
     correct_logprobs = eindex(logprobs, tokens, "b s [b s+1]")
     return correct_logprobs
-    
+
+
+def head_zero_ablation_hook(z: Float[Tensor, "batch seq n_heads d_head"], hook: HookPoint, head_index_to_ablate: int) -> None:
+    z[:, :, head_index_to_ablate, :] = 0.0
+
+
 def get_ablation_scores(model: HookedTransformer, tokens: Int[Tensor, "batch seq"], ablation_function: Callable = head_zero_ablation_hook) -> Float[Tensor, "n_layers n_heads"]:
     """
     Returns a tensor of shape (n_layers, n_heads) containing the increase in cross entropy loss from ablating the output of each head.
