@@ -121,7 +121,7 @@ def decompose_attn_scores(decomposed_q: Float[Tensor, "q_comp q_pos d_head"], de
     ) / (model.cfg.d_head**0.5)
 
 
-def test_decompose_attn_scores(decompose_attn_scores_ip: Callable, q: t.Tensor, k: t.Tensor, model: HookedTransformer):
+def test_decompose_attn_scores(decompose_attn_scores_ip: Callable, q: torch.Tensor, k: torch.Tensor, model: HookedTransformer):
     decomposed_scores = decompose_attn_scores_ip(q, k, model)
     decomposed_scores_expected = decompose_attn_scores(q, k, model)
 
@@ -171,8 +171,8 @@ def get_comp_score(W_A: Float[Tensor, "in_A out_A"], W_B: Float[Tensor, "out_A o
 
 
 def test_get_comp_score(get_comp_score_ip: Callable):
-    W_A = t.rand(3, 4)
-    W_B = t.rand(4, 5)
+    W_A = torch.rand(3, 4)
+    W_B = torch.rand(4, 5)
 
     comp_score = get_comp_score_ip(W_A, W_B)
     comp_score_expected = get_comp_score(W_A, W_B)
