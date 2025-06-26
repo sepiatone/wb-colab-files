@@ -12,6 +12,7 @@ import functools
 import tqdm
 from eindex import eindex
 import einops
+from transformer_lens.hook_points import HookPoint
 
 SUPABASE_URL = "https://udnmlcykctnahtnzmmmx.supabase.co"
 
