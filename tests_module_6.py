@@ -5,6 +5,7 @@ import requests
 
 from typing import Callable
 from jaxtyping import Int, Float
+import torch
 from torch import Tensor
 from transformer_lens import FactoredMatrix, HookedTransformer
 
