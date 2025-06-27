@@ -73,7 +73,7 @@ update_layout_set = {
 }
 
 
-def imshow(tensor: torch.Tensor, renderer=None, **kwargs):
+def wb_imshow(tensor: torch.Tensor, renderer=None, **kwargs):
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
     kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
     if ("size" in kwargs_pre) or ("shape" in kwargs_pre):
