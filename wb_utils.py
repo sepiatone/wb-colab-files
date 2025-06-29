@@ -34,6 +34,43 @@ def plot_loss_difference(log_probs, rep_str, seq_len, filename: str | None = Non
     if filename is not None:
         fig.write_html(filename)
 
+update_layout_set = {
+    "xaxis_range",
+    "yaxis_range",
+    "hovermode",
+    "xaxis_title",
+    "yaxis_title",
+    "colorbar",
+    "colorscale",
+    "coloraxis",
+    "title_x",
+    "bargap",
+    "bargroupgap",
+    "xaxis_tickformat",
+    "yaxis_tickformat",
+    "title_y",
+    "legend_title_text",
+    "xaxis_showgrid",
+    "xaxis_gridwidth",
+    "xaxis_gridcolor",
+    "yaxis_showgrid",
+    "yaxis_gridwidth",
+    "yaxis_gridcolor",
+    "showlegend",
+    "xaxis_tickmode",
+    "yaxis_tickmode",
+    "margin",
+    "xaxis_visible",
+    "yaxis_visible",
+    "bargap",
+    "bargroupgap",
+    "coloraxis_showscale",
+    "xaxis_tickangle",
+    "yaxis_scaleanchor",
+    "xaxis_tickfont",
+    "yaxis_tickfont",
+}
+
 
 def wb_imshow(tensor: torch.Tensor, renderer=None, **kwargs):
     kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
