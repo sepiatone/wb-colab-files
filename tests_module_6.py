@@ -195,6 +195,25 @@ def test2(layer0_pattern_from_cache, layer0_pattern_from_q_and_k):
     torch.testing.assert_close(layer0_pattern_from_cache, layer0_pattern_from_q_and_k)
     test_submit(2, mid=6, eid=1)
     print("All tests in `test2` passed!")
+
+
+def plot_logit_attribution(model, logit_attr: torch.Tensor, tokens: torch.Tensor, title: str = "", filename: str | None = None):
+    tokens = tokens.squeeze()
+    y_labels = convert_tokens_to_string(model, tokens[:-1])
+    x_labels = ["Direct"] + [f"L{l}H{h}" for l in range(model.cfg.n_layers) for h in range(model.cfg.n_heads)]
+    fig = wb_imshow(
+        to_numpy(logit_attr),  # type: ignore
+        x=x_labels,
+        y=y_labels,
+        labels={"x": "Term", "y": "Position", "color": "logit"},
+        title=title if title else None,
+        height=100 + (30 if title else 0) + 15 * len(y_labels),
+        width=24 * len(x_labels),
+        return_fig=True,
+    )
+    fig.show()
+    if filename is not None:
+        fig.write_html(filename)
     
 
 def test3(logit_attr, correct_token_logits, atol=None, rtol=None): 
