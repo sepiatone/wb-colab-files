@@ -21,6 +21,15 @@ def to_numpy(tensor):
         raise ValueError(f"Input to to_numpy has invalid type: {type(tensor)}")
 
 
+def convert_tokens_to_string(model, tokens, batch_index=0):
+    """
+    Helper function to convert tokens into a list of strings, for printing.
+    """
+    if len(tokens.shape) == 2:
+        tokens = tokens[batch_index]
+    return [f"|{model.tokenizer.decode(tok)}|_{c}" for (c, tok) in enumerate(tokens)]
+
+
 def plot_loss_difference(log_probs, rep_str, seq_len, filename: str | None = None):
     fig = px.line(
         to_numpy(log_probs),
