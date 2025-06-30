@@ -121,3 +121,22 @@ def wb_imshow(tensor: torch.Tensor, renderer=None, **kwargs):
             xaxis_name = "xaxis" if i == 1 else f"xaxis{i}"
             fig.layout[xaxis_name]["tickangle"] = xaxis_tickangle  # type: ignore
     return fig if return_fig else fig.show(renderer=renderer, config={"staticPlot": static})
+
+
+def plot_logit_attribution(model, logit_attr: torch.Tensor, tokens: torch.Tensor, title: str = "", filename: str | None = None):
+    tokens = tokens.squeeze()
+    y_labels = convert_tokens_to_string(model, tokens[:-1])
+    x_labels = ["Direct"] + [f"L{l}H{h}" for l in range(model.cfg.n_layers) for h in range(model.cfg.n_heads)]
+    fig = wb_imshow(
+        to_numpy(logit_attr),  # type: ignore
+        x=x_labels,
+        y=y_labels,
+        labels={"x": "Term", "y": "Position", "color": "logit"},
+        title=title if title else None,
+        height=100 + (30 if title else 0) + 15 * len(y_labels),
+        width=24 * len(x_labels),
+        return_fig=True,
+    )
+    fig.show()
+    if filename is not None:
+        fig.write_html(filename)
