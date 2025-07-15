@@ -225,7 +225,7 @@ def test5(AB_unfactored, AB):
 
 
 def test6(full_OV_circuit, model, layer, head_index):
-    tests.test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
+    test_full_OV_circuit(full_OV_circuit, model, layer, head_index)
     test_submit(6, mid=6, eid=1)
     print("All tests in `test6` passed!")
 
@@ -240,19 +240,19 @@ def test7(decomposed_qk_input, decomposed_q, decomposed_k, rep_cache, ind_head_i
     
 
 def test8(decompose_attn_scores, decomposed_q, decomposed_k, model):
-    tests.test_decompose_attn_scores(decompose_attn_scores, decomposed_q, decomposed_k, model)
+    test_decompose_attn_scores(decompose_attn_scores, decomposed_q, decomposed_k, model)
     test_submit(8, mid=6, eid=1)
     print("All tests in `test8` passed!")
 
 
 def test9(find_K_comp_full_circuit, model):
-    tests.test_find_K_comp_full_circuit(find_K_comp_full_circuit, model)
+    test_find_K_comp_full_circuit(find_K_comp_full_circuit, model)
     test_submit(9, mid=6, eid=1)
     print("All tests in `test5` passed!")
     
 
 def test10(get_comp_score):
-    tests.test_get_comp_score(get_comp_score)
+    test_get_comp_score(get_comp_score)
     test_submit(10, mid=6, eid=1)
     print("All tests in `test10` passed!")
 
