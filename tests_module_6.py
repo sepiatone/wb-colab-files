@@ -216,7 +216,7 @@ def test3(logit_attr, correct_token_logits, atol=None, rtol=None):
 def test4(ablation_scores, model, rep_tokens):
     test_get_ablation_scores(ablation_scores, model, rep_tokens)
     test_submit(4, mid=6, eid=1)
-     print("All tests in `test4` passed!")
+    print("All tests in `test4` passed!")
 
 
 def test5(AB_unfactored, AB):
