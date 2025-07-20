@@ -216,6 +216,7 @@ def test3(logit_attr, correct_token_logits, atol=None, rtol=None):
 def test4(ablation_scores, model, rep_tokens):
     test_get_ablation_scores(ablation_scores, model, rep_tokens)
     test_submit(4, mid=6, eid=1)
+     print("All tests in `test4` passed!")
 
 
 def test5(AB_unfactored, AB):
@@ -248,7 +249,7 @@ def test8(decompose_attn_scores, decomposed_q, decomposed_k, model):
 def test9(find_K_comp_full_circuit, model):
     test_find_K_comp_full_circuit(find_K_comp_full_circuit, model)
     test_submit(9, mid=6, eid=1)
-    print("All tests in `test5` passed!")
+    print("All tests in `test9` passed!")
     
 
 def test10(get_comp_score):
