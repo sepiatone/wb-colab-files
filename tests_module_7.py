@@ -156,3 +156,28 @@ def test_model(Model):
     assert t.allclose(out_actual, out_expected), "incorrect output when compared to solution."
     
     print("all tests in `test_model` passed!")
+
+
+def test_generate_batch(Model):
+    # import part31_superposition_and_saes.solutions as solutions
+
+    n_features = 5
+    n_instances = 10
+    n_hidden = 2
+    batch_size = 5000
+    cfg = ToyModelConfig_Solution(n_instances, n_features, n_hidden)
+    feature_probability = (t.arange(1, 11) / 11).unsqueeze(-1)
+    model = Model(cfg, feature_probability=feature_probability)
+    batch = model.generate_batch(batch_size)
+
+    assert batch.shape == (
+        batch_size,
+        n_instances,
+        n_features,
+    ), f"expected shape (500, 10, 5), got {batch.shape}"
+    assert t.allclose(batch, batch.clamp(0, 1)), "not all elements of batch are in the [0, 1] range."
+    feature_probability = (batch.abs() > 1e-5).float().mean((0, -1))
+    diff = (feature_probability - model.feature_probability[:, 0]).abs().sum()
+    assert diff < 0.05, "incorrect feature_probability implementation."
+
+    print("all tests in `test_generate_batch` passed!")
