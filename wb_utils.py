@@ -149,3 +149,111 @@ def plot_logit_attribution(model, logit_attr: torch.Tensor, tokens: torch.Tensor
     fig.show()
     if filename is not None:
         fig.write_html(filename)
+
+
+def cast_element_to_nested_list(elem, shape: tuple):
+    """
+    Creates a nested list of shape `shape`, where every element is `elem`.
+    Example: ("a", (2, 2)) -> [["a", "a"], ["a", "a"]]
+    """
+    if len(shape) == 0:
+        return elem
+    return [cast_element_to_nested_list(elem, shape[1:])] * shape[0]
+
+
+def plot_features_in_2d(
+    W: Float[Tensor, "*inst d_hidden feats"] | list[Float[Tensor, "d_hidden feats"]],
+    colors: Float[Tensor, "inst feats"] | list[str] | list[list[str]] | None = None,
+    title: str | None = None,
+    subplot_titles: list[str] | None = None,
+    allow_different_limits_across_subplots: bool = False,
+    n_rows: int | None = None,
+):
+    """
+    Visualises superposition in 2D.
+
+    If values is 4D, the first dimension is assumed to be timesteps, and an animation is created.
+    """
+    # Convert W into a list of 2D tensors, each of shape [feats, d_hidden=2]
+    if isinstance(W, Tensor):
+        if W.ndim == 2:
+            W = W.unsqueeze(0)
+        n_instances, d_hidden, n_feats = W.shape
+        n_feats_list = []
+        W = W.detach().cpu()
+    else:
+        # Hacky case which helps us deal with double descent exercises (this is never used outside of those exercises)
+        assert all(w.ndim == 2 for w in W)
+        n_feats_list = [w.shape[1] for w in W]
+        n_feats = max(n_feats_list)
+        n_instances = len(W)
+        W = [w.detach().cpu() for w in W]
+
+    W_list: list[Tensor] = [W_instance.T for W_instance in W]
+
+    # Get some plot characteristics
+    limits_per_instance = (
+        [w.abs().max() * 1.1 for w in W_list]
+        if allow_different_limits_across_subplots
+        else [1.5 for _ in range(n_instances)]
+    )
+    linewidth, markersize = (1, 4) if (n_feats >= 25) else (1.5, 6)
+
+    # Maybe break onto multiple rows
+    if n_rows is None:
+        n_rows, n_cols = 1, n_instances
+        row_col_tuples = [(0, i) for i in range(n_instances)]
+    else:
+        n_cols = n_instances // n_rows
+        row_col_tuples = [(i // n_cols, i % n_cols) for i in range(n_instances)]
+
+    # Convert colors into a 2D list of strings, with shape [instances, feats]
+    if colors is None:
+        colors_list = cast_element_to_nested_list("black", (n_instances, n_feats))
+    elif isinstance(colors, str):
+        colors_list = cast_element_to_nested_list(colors, (n_instances, n_feats))
+    elif isinstance(colors, list):
+        # List of strings -> same for each instance and feature
+        if isinstance(colors[0], str):
+            assert len(colors) == n_feats
+            colors_list = [colors for _ in range(n_instances)]
+        # List of lists of strings -> different across instances & features (we broadcast)
+        else:
+            colors_list = []
+            for i, colors_for_instance in enumerate(colors):
+                assert len(colors_for_instance) in (1, n_feats_list[i])
+                colors_list.append(colors_for_instance * (n_feats_list[i] if len(colors_for_instance) == 1 else 1))
+    elif isinstance(colors, Tensor):
+        assert colors.shape == (n_instances, n_feats)
+        colors_list = [[get_viridis(v) for v in color] for color in colors.tolist()]
+
+    # Create a figure and axes, and make sure axs is a 2D array
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(2.5 * n_cols, 2.5 * n_rows))
+    axs = np.broadcast_to(axs, (n_rows, n_cols))
+
+    # If there are titles, add more spacing for them
+    fig.subplots_adjust(bottom=0.2, top=(0.8 if title else 0.9), left=0.1, right=0.9, hspace=0.5)
+
+    # Initialize lines and markers
+    for instance_idx, ((row, col), limits_per_instance) in enumerate(zip(row_col_tuples, limits_per_instance)):
+        # Get the right axis, and set the limits
+        ax = axs[row, col]
+        ax.set_xlim(-limits_per_instance, limits_per_instance)
+        ax.set_ylim(-limits_per_instance, limits_per_instance)
+        ax.set_aspect("equal", adjustable="box")
+
+        # Add all the features for this instance
+        _n_feats = n_feats if len(n_feats_list) == 0 else n_feats_list[instance_idx]
+        for feature_idx in range(_n_feats):
+            x, y = W_list[instance_idx][feature_idx].tolist()
+            color = colors_list[instance_idx][feature_idx]
+            ax.plot([0, x], [0, y], color=color, lw=linewidth)[0]
+            ax.plot([x, x], [y, y], color=color, marker="o", markersize=markersize)[0]
+
+        # Add titles & subtitles
+        if title:
+            fig.suptitle(title, fontsize=15)
+        if subplot_titles:
+            axs[row, col].set_title(subplot_titles[instance_idx], fontsize=12)
+
+    plt.show()
