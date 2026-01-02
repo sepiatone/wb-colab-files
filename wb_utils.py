@@ -2,6 +2,7 @@ import numpy as np
 import plotly.express as px
 import torch
 from torch import Tensor
+from jaxtyping import Float
 from matplotlib import pyplot as plt
 
 
