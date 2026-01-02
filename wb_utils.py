@@ -32,6 +32,11 @@ def convert_tokens_to_string(model, tokens, batch_index=0):
     return [f"|{model.tokenizer.decode(tok)}|_{c}" for (c, tok) in enumerate(tokens)]
 
 
+def get_viridis(v: float) -> tuple[float, float, float]:
+    r, g, b, a = plt.get_cmap("viridis")(v)
+    return (r, g, b)
+
+
 def plot_loss_difference(log_probs, rep_str, seq_len, filename: str | None = None):
     fig = px.line(
         to_numpy(log_probs),
