@@ -264,3 +264,61 @@ def plot_features_in_2d(
             axs[row, col].set_title(subplot_titles[instance_idx], fontsize=12)
 
     plt.show()
+
+
+def wb_line(y: Tensor | list, renderer=None, **kwargs):
+    """
+    Edit to this helper function, allowing it to take args in update_layout (e.g. yaxis_range).
+    """
+    kwargs_post = {k: v for k, v in kwargs.items() if k in update_layout_set}
+    kwargs_pre = {k: v for k, v in kwargs.items() if k not in update_layout_set}
+    if ("size" in kwargs_pre) or ("shape" in kwargs_pre):
+        size = kwargs_pre.pop("size", None) or kwargs_pre.pop("shape", None)
+        kwargs_pre["height"], kwargs_pre["width"] = size  # type: ignore
+    return_fig = kwargs_pre.pop("return_fig", False)
+    if "margin" in kwargs_post and isinstance(kwargs_post["margin"], int):
+        kwargs_post["margin"] = dict.fromkeys(list("tblr"), kwargs_post["margin"])
+    if "xaxis_tickvals" in kwargs_pre:
+        tickvals = kwargs_pre.pop("xaxis_tickvals")
+        kwargs_post["xaxis"] = dict(
+            tickmode="array",
+            tickvals=kwargs_pre.get("x", np.arange(len(tickvals))),
+            ticktext=tickvals,
+        )
+    if "hovermode" not in kwargs_post:
+        kwargs_post["hovermode"] = "x unified"
+    hovertext = kwargs_pre.pop("hovertext", None)
+    if "use_secondary_yaxis" in kwargs_pre and kwargs_pre["use_secondary_yaxis"]:
+        del kwargs_pre["use_secondary_yaxis"]
+        if "labels" in kwargs_pre:
+            labels: dict = kwargs_pre.pop("labels")
+            kwargs_post["yaxis_title_text"] = labels.get("y1", None)
+            kwargs_post["yaxis2_title_text"] = labels.get("y2", None)
+            kwargs_post["xaxis_title_text"] = labels.get("x", None)
+        for k in ["title", "template", "width", "height"]:
+            if k in kwargs_pre:
+                kwargs_post[k] = kwargs_pre.pop(k)
+        fig = make_subplots(specs=[[{"secondary_y": True}]]).update_layout(**kwargs_post)
+        y0 = to_numpy(y[0])
+        y1 = to_numpy(y[1])
+        x0, x1 = kwargs_pre.pop("x", [np.arange(len(y0)), np.arange(len(y1))])
+        name0, name1 = kwargs_pre.pop("names", ["yaxis1", "yaxis2"])
+        fig.add_trace(go.Scatter(y=y0, x=x0, name=name0), secondary_y=False)
+        fig.add_trace(go.Scatter(y=y1, x=x1, name=name1), secondary_y=True)
+    else:
+        y = (
+            list(map(to_numpy, y))
+            if isinstance(y, list) and not (isinstance(y[0], int) or isinstance(y[0], float))
+            else to_numpy(y)
+        )  # type: ignore
+        names = kwargs_pre.pop("names", None)
+        fig = px.line(y=y, **kwargs_pre).update_layout(**kwargs_post)
+        if names is not None:
+            fig.for_each_trace(lambda trace: trace.update(name=names.pop(0)))
+    if hovertext is not None:
+        ht = fig.data[0].hovertemplate
+        fig.for_each_trace(
+            lambda trace: trace.update(hovertext=hovertext, hovertemplate="%{hovertext}<br>" + ht)
+        )
+
+    return fig if return_fig else fig.show(renderer=renderer)
