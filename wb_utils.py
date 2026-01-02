@@ -2,6 +2,7 @@ import numpy as np
 import plotly.express as px
 import torch
 from torch import Tensor
+from matplotlib import pyplot as plt
 
 
 def to_numpy(tensor):
