@@ -181,3 +181,33 @@ def test_generate_batch(Model):
     assert diff < 0.05, "incorrect feature_probability implementation."
 
     print("all tests in `test_generate_batch` passed!")
+
+
+def test_calculate_loss(Model):
+    import part31_superposition_and_saes.solutions as solutions
+
+    instances = 10
+    features = 5
+    d_hidden = 2
+    cfg = ToyModelConfig_Solution(instances, features, d_hidden)
+
+    # Define model & solution model, both with trivial importances, and test for equality
+    model_soln = ToyModel_Solution(cfg)
+    model = Model(cfg)
+    batch = model.generate_batch(10)
+    out = model(batch)
+    expected_loss = model_soln.calculate_loss(out, batch)
+    actual_loss = model.calculate_loss(out, batch)
+    t.testing.assert_close(expected_loss, actual_loss, msg="Failed test with trivial importances")
+
+    # Now test with nontrivial importances
+    importance = t.rand(instances, features)
+    model_soln = ToyModel_Solution(cfg, importance=importance)
+    model = Model(cfg, importance=importance)
+    batch = model.generate_batch(10)
+    out = model(batch)
+    expected_loss = model_soln.calculate_loss(out, batch)
+    actual_loss = model.calculate_loss(out, batch)
+    t.testing.assert_close(expected_loss, actual_loss, msg="Failed test with nontrivial importances")
+
+    print("all tests in `test_calculate_loss` passed!")
