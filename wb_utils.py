@@ -2,8 +2,11 @@ import numpy as np
 import plotly.express as px
 import torch
 from torch import Tensor
+import torch as t
 from jaxtyping import Float
 from matplotlib import pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+from plotly.subplots import make_subplots
 
 
 def to_numpy(tensor):
@@ -156,6 +159,18 @@ def plot_logit_attribution(model, logit_attr: torch.Tensor, tokens: torch.Tensor
     fig.show()
     if filename is not None:
         fig.write_html(filename)
+
+
+## superposition and saes
+
+
+red = plt.get_cmap("coolwarm")(0.0)
+blue = plt.get_cmap("coolwarm")(1.0)
+light_grey = np.array([15 / 16, 15 / 16, 15 / 16, 1.0])
+red_grey_blue_cmap = LinearSegmentedColormap.from_list(
+    "modified_coolwarm",
+    np.vstack([np.linspace(red, light_grey, 128), np.linspace(light_grey, blue, 128)]),
+)
 
 
 def cast_element_to_nested_list(elem, shape: tuple):
