@@ -212,3 +212,98 @@ def test_calculate_loss(Model):
     print("all tests in `test_calculate_loss` passed!")
 
 
+class NeuronComputationModel(ToyModel):
+    W1: Float[Tensor, "inst d_hidden feats"]
+    W2: Float[Tensor, "inst feats d_hidden"]
+    b_final: Float[Tensor, "inst feats"]
+
+    def __init__(
+        self,
+        cfg: ToyModelConfig,
+        feature_probability: float | Tensor = 1.0,
+        importance: float | Tensor = 1.0,
+        device=device,
+    ):
+        super(ToyModel, self).__init__()
+        self.cfg = cfg
+
+        if isinstance(feature_probability, float):
+            feature_probability = t.tensor(feature_probability)
+        self.feature_probability = feature_probability.to(device).broadcast_to(
+            (cfg.n_inst, cfg.n_features)
+        )
+        if isinstance(importance, float):
+            importance = t.tensor(importance)
+        self.importance = importance.to(device).broadcast_to((cfg.n_inst, cfg.n_features))
+
+        self.W1 = nn.Parameter(
+            nn.init.kaiming_uniform_(t.empty((cfg.n_inst, cfg.d_hidden, cfg.n_features)))
+        )
+        self.W2 = nn.Parameter(
+            nn.init.kaiming_uniform_(t.empty((cfg.n_inst, cfg.n_features, cfg.d_hidden)))
+        )
+        self.b_final = nn.Parameter(t.zeros((cfg.n_inst, cfg.n_features)))
+        self.to(device)
+
+    def forward(self, features: Float[Tensor, "... inst feats"]) -> Float[Tensor, "... inst feats"]:
+        activations = F.relu(
+            einops.einsum(
+                features, self.W1, "... inst feats, inst d_hidden feats -> ... inst d_hidden"
+            )
+        )
+        out = F.relu(
+            einops.einsum(
+                activations, self.W2, "... inst d_hidden, inst feats d_hidden -> ... inst feats"
+            )
+            + self.b_final
+        )
+        return out
+
+    def generate_batch(self, batch_size) -> Float[Tensor, "batch instances features"]:
+        feat_mag = (
+            2 * t.rand((batch_size, self.cfg.n_inst, self.cfg.n_features), device=self.W1.device)
+            - 1
+        )
+        feat_seed = t.rand(
+            (batch_size, self.cfg.n_inst, self.cfg.n_features),
+            device=self.W1.device,
+        )
+        batch = t.where(feat_seed < self.feature_probability, feat_mag, 0.0)
+        return batch
+
+    def calculate_loss(
+        self,
+        out: Float[Tensor, "batch instances features"],
+        batch: Float[Tensor, "batch instances features"],
+    ) -> Float[Tensor, ""]:
+        error = self.importance * ((batch.abs() - out) ** 2)
+        loss = einops.reduce(error, "batch inst feats -> inst", "mean").sum()
+        return loss
+
+
+def test_neuron_computation_model(neuron_computation_model):
+
+    cfg = ToyModelConfig_Solutions(
+        n_inst=10,
+        n_features=5,
+        d_hidden=2,
+    )
+
+    # Generate model from solutions & from your code
+    model_soln = NeuronComputationModel_Solution(cfg)
+    model = neuron_computation_model(cfg)
+    model.load_state_dict(model_soln.state_dict())
+
+    # Bias is initialized to zero, so we can't tell if it's been added to the forward pass. We will temporarily set it to random values to check if it's being used.
+    model.b_final.data = t.randn_like(model.b_final.data)
+    model_soln.b_final.data = model.b_final.data.clone()
+
+    # Run forward pass on same data for both models
+    batch = model_soln.generate_batch(100)
+    out_soln = model_soln(batch)
+    out = model(batch)
+
+    # Should get same results
+    t.testing.assert_close(out_soln, out)
+
+    print("all tests in `test_neuron_computation_model` passed!")
