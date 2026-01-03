@@ -596,3 +596,78 @@ def plot_features_in_Nd(
     fig.update_yaxes(showticklabels=False, showgrid=False)
 
     fig.show()
+
+
+def plot_features_in_Nd_discrete(
+    W1: Float[Tensor, "inst d_hidden feats"],
+    W2: Float[Tensor, "inst feats d_hidden"],
+    legend_names: list[str],
+    height: int = 600,
+    width: int | None = None,
+    title: str | None = None,
+):
+    n_instances, d_hidden, n_feats = W1.shape
+
+    if width is None:
+        width = 200 * (n_instances + 1)
+
+    color_list = px.colors.qualitative.D3 + px.colors.qualitative.T10
+    assert n_feats <= len(color_list), "Too many features for discrete plot"
+
+    W1 = W1.detach().cpu()
+    W2 = W2.detach().cpu()
+
+    titles = [f"Inst={inst}<br>W<sub>1</sub>" for inst in range(n_instances)] + [
+        "W<sub>2</sub>" for inst in range(n_instances)
+    ]
+
+    fig = make_subplots(rows=2, cols=n_instances, subplot_titles=titles, vertical_spacing=0.1)
+    for inst in range(n_instances):
+        for feat in range(n_feats):
+            fig.add_trace(
+                go.Bar(
+                    x=t.arange(d_hidden),
+                    y=W1[inst, :, feat],
+                    marker=dict(color=[color_list[feat]] * d_hidden),
+                    showlegend=inst == 0,
+                    name=legend_names[feat],
+                    width=0.9,
+                ),
+                col=1 + inst,
+                row=1,
+            )
+            # showlegend=inst==0, name=legend_names[feat]
+            fig.add_trace(
+                go.Bar(
+                    x=t.arange(d_hidden),
+                    y=W2[inst, feat, :],
+                    marker=dict(color=[color_list[feat]] * d_hidden),
+                    showlegend=False,
+                    width=0.9,
+                ),
+                col=1 + inst,
+                row=2,
+            )
+
+    # Stacked plots to allow for all features to be seen
+    fig.update_layout(barmode="relative")
+
+    # Weird naming convention for subplots, make sure we have a list of the subplot names for bar charts so we can iterate through them
+    fig_indices = [str(i) if i != 1 else "" for i in range(1, 1 + 2 * n_instances)]
+    m = max(W1.abs().max().item(), W2.abs().max().item())
+    for inst in range(2 * n_instances):
+        fig["layout"][f"yaxis{fig_indices[inst]}_range"] = [-m - 1, m + 1]  # type: ignore
+
+    fig.update_layout(
+        legend_title_text="Feature importances",
+        width=width,
+        height=height,
+        margin=dict(t=40 if title is None else 110, b=40, l=50, r=40),
+        plot_bgcolor="#eee",
+        title=title,
+        title_y=0.95,
+    )
+
+    fig.update_xaxes(showticklabels=False, showgrid=False)
+    fig.update_yaxes(showgrid=False)
+    fig.show()
