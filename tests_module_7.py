@@ -98,8 +98,9 @@ class ToyModel_Solution(nn.Module):
 
         Note, `self.importance` is guaranteed to broadcast with the shape of `out` and `batch`.
         """
-        # You'll fill this in later
-        raise NotImplementedError()
+        error = self.importance * ((batch - out) ** 2)
+        loss = einops.reduce(error, "batch inst feats -> inst", "mean").sum()
+        return loss
 
     def optimize(
         self,
@@ -209,4 +210,5 @@ def test_calculate_loss(Model):
     t.testing.assert_close(expected_loss, actual_loss, msg="Failed test with nontrivial importances")
 
     print("all tests in `test_calculate_loss` passed!")
+
 
