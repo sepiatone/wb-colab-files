@@ -184,8 +184,6 @@ def test_generate_batch(Model):
 
 
 def test_calculate_loss(Model):
-    import part31_superposition_and_saes.solutions as solutions
-
     instances = 10
     features = 5
     d_hidden = 2
@@ -211,3 +209,4 @@ def test_calculate_loss(Model):
     t.testing.assert_close(expected_loss, actual_loss, msg="Failed test with nontrivial importances")
 
     print("all tests in `test_calculate_loss` passed!")
+
