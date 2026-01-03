@@ -322,3 +322,260 @@ def wb_line(y: Tensor | list, renderer=None, **kwargs):
         )
 
     return fig if return_fig else fig.show(renderer=renderer)
+
+
+def sort_W_by_monosemanticity(
+    W: Float[Tensor, "feats d_hidden"],
+) -> tuple[Float[Tensor, "feats d_hidden"], int]:
+    """
+    Rearranges the columns of the tensor (i.e. rearranges neurons) in descending order of
+    their monosemanticity (where we define monosemanticity as the largest fraction of this
+    neuron's norm which is a single feature).
+
+    Also returns the number of "monosemantic features", which we (somewhat arbitrarily)
+    define as the fraction being >90% of the total norm.
+    """
+    norm_by_neuron = W.pow(2).sum(dim=0)
+    monosemanticity = W.abs().max(dim=0).values / (norm_by_neuron + 1e-6).sqrt()
+
+    column_order = monosemanticity.argsort(descending=True).tolist()
+
+    n_monosemantic_features = int((monosemanticity.abs() > 0.99).sum().item())
+
+    return W[:, column_order], n_monosemantic_features
+
+
+def rearrange_full_tensor(
+    W: Float[Tensor, "inst d_hidden feats"],
+):
+    """
+    Same as above, but works on W in its original form, and returns a list of
+    number of monosemantic features per instance.
+    """
+    n_monosemantic_features_list = []
+
+    for i, W_inst in enumerate(W):
+        W_inst_rearranged, n_monosemantic_features = sort_W_by_monosemanticity(W_inst.T)
+        W[i] = W_inst_rearranged.T
+        n_monosemantic_features_list.append(n_monosemantic_features)
+
+    return W, n_monosemantic_features_list
+
+
+def get_viridis_str(v: float) -> str:
+    r, g, b, a = plt.get_cmap("viridis")(v)
+    r, g, b = int(r * 255), int(g * 255), int(b * 255)
+    return f"rgb({r}, {g}, {b})"
+
+
+def clamp(x: float, min_val: float, max_val: float) -> float:
+    return min(max(x, min_val), max_val)
+
+
+def plot_features_in_Nd(
+    W: Float[Tensor, "inst d_hidden feats"],
+    height: int,
+    width: int,
+    title: str | None = None,
+    subplot_titles: list[str] | None = None,
+    neuron_plot: bool = False,
+):
+    n_instances, d_hidden, n_feats = W.shape
+
+    W = W.detach().cpu()
+
+    # Rearrange to align with standard basis
+    W, n_monosemantic_features = rearrange_full_tensor(W)
+
+    # Normalize W, i.e. W_normed[inst, i] is normalized i-th feature vector
+    W_normed = W / (1e-6 + t.linalg.norm(W, 2, dim=1, keepdim=True))
+
+    # We get interference[i, j] = sum_{j!=i} (W_normed[i] @ W[j]) (ignoring the instance dimension)
+    # because then we can calculate superposition by squaring & summing this over j
+    interference = einops.einsum(
+        W_normed,
+        W,
+        "instances hidden feats_i, instances hidden feats_j -> instances feats_i feats_j",
+    )
+    interference[:, range(n_feats), range(n_feats)] = 0
+
+    # Now take the sum, and sqrt (we could just as well not sqrt)
+    # Heuristic: polysemanticity is zero if it's orthogonal to all else, one if it's perfectly aligned with any other single vector
+    polysemanticity = einops.reduce(
+        interference.pow(2),
+        "instances feats_i feats_j -> instances feats_i",
+        "sum",
+    ).sqrt()
+    colors = [
+        [get_viridis_str(v.item()) for v in polysemanticity_for_this_instance]
+        for polysemanticity_for_this_instance in polysemanticity
+    ]
+
+    # Get the norms (this is the bar height)
+    W_norms = einops.reduce(
+        W.pow(2),
+        "instances hidden feats -> instances feats",
+        "sum",
+    ).sqrt()
+
+    # We need W.T @ W for the heatmap (unless this is a neuron plot, then we just use w)
+    if not (neuron_plot):
+        WtW = einops.einsum(
+            W,
+            W,
+            "instances hidden feats_i, instances hidden feats_j -> instances feats_i feats_j",
+        )
+        imshow_data = WtW.numpy()
+    else:
+        imshow_data = einops.rearrange(W, "instances hidden feats -> instances feats hidden").numpy()
+
+    # Get titles (if they exist). Make sure titles only apply to the bar chart in each row
+    titles = ["Heatmap of " + ("W" if neuron_plot else "W<sup>T</sup>W")] * n_instances + [
+        "Neuron weights<br>stacked bar plot" if neuron_plot else "Feature norms"
+    ] * n_instances  # , ||W<sub>i</sub>||
+    if subplot_titles is not None:
+        for i, st in enumerate(subplot_titles):
+            titles[i] = st + "<br>" + titles[i]
+
+    total_height = 0.9 if title is None else 0.8
+    if neuron_plot:
+        heatmap_height_fraction = clamp(n_feats / (d_hidden + n_feats), 0.5, 0.75)
+    else:
+        heatmap_height_fraction = 1 - clamp(n_feats / (30 + n_feats), 0.5, 0.75)
+    row_heights = [
+        total_height * heatmap_height_fraction,
+        total_height * (1 - heatmap_height_fraction),
+    ]
+
+    n_rows = 2
+    n_cols = n_instances
+
+    fig = make_subplots(
+        rows=n_rows,
+        cols=n_cols,
+        vertical_spacing=0.1 if neuron_plot else 0.05,
+        row_heights=row_heights,
+        subplot_titles=titles,
+    )
+    for inst in range(n_instances):
+        # (1) Add bar charts
+        # If it's the non-neuron plot then x = features, y = norms of those features. If it's the
+        # neuron plot, our x = neurons (d_hidden), y = the loadings of features on those neurons. In
+        # both cases, colors = polysemanticity of features, which we've already computed
+        if neuron_plot:
+            for feat in range(n_feats):
+                fig.add_trace(
+                    go.Bar(
+                        x=t.arange(d_hidden),
+                        y=W[inst, :, feat],
+                        marker=dict(color=[colors[inst][feat]] * d_hidden),
+                        width=0.9,
+                    ),
+                    col=1 + inst,
+                    row=2,
+                )
+        else:
+            fig.add_trace(
+                go.Bar(
+                    y=t.arange(n_feats).flip(0),
+                    x=W_norms[inst],
+                    marker=dict(color=colors[inst]),
+                    width=0.9,
+                    orientation="h",
+                ),
+                col=1 + inst,
+                row=2,
+            )
+        # (2) Add heatmap
+        # Code is same for neuron plot vs no neuron plot, although data is different: W.T @ W vs W
+        fig.add_trace(
+            go.Image(
+                z=red_grey_blue_cmap((1 + imshow_data[inst]) / 2, bytes=True),
+                colormodel="rgba256",
+                customdata=imshow_data[inst],
+                hovertemplate="""In: %{x}<br>\nOut: %{y}<br>\nWeight: %{customdata:0.2f}""",
+            ),
+            col=1 + inst,
+            row=1,
+        )
+
+    if neuron_plot:
+        # Stacked plots to allow for all features to be seen
+        fig.update_layout(barmode="relative")
+
+        # Weird naming convention for subplots, make sure we have a list of the subplot names for bar charts so we can iterate through them
+        n0 = 1 + n_instances
+        fig_indices = [str(i) if i != 1 else "" for i in range(n0, n0 + n_instances)]
+
+        for inst in range(n_instances):
+            fig["layout"][f"yaxis{fig_indices[inst]}_range"] = [-6, 6]  # type: ignore
+
+            # Add the background colors
+            row, col = (2, 1 + inst)
+            fig.add_vrect(
+                x0=-0.5,
+                x1=-0.5 + n_monosemantic_features[inst],
+                fillcolor="#440154",
+                line_width=0.0,
+                opacity=0.2,
+                col=col,  # type: ignore
+                row=row,  # type: ignore
+                layer="below",
+            )
+            fig.add_vrect(
+                x0=-0.5 + n_monosemantic_features[inst],
+                x1=-0.5 + d_hidden,
+                fillcolor="#fde725",
+                line_width=0.0,
+                opacity=0.2,
+                col=col,  # type: ignore
+                row=row,  # type: ignore
+                layer="below",
+            )
+
+    else:
+        # Add annotation of "features" on the y-axis of the bar plot
+        fig_indices = [str(i) if i != 1 else "" for i in range(n_instances + 1, 2 * n_instances + 1)]
+        for inst in range(n_instances):
+            fig.add_annotation(
+                text="Features ➔",  # ➤→⮕🡒➜
+                xref=f"x{fig_indices[inst]} domain",
+                yref=f"y{fig_indices[inst]} domain",
+                x=-0.13,
+                y=0.99,  # Positioning the annotation outside the first bar plot subfigure
+                showarrow=False,
+                font=dict(size=12),
+                textangle=90,  # Set the text angle to 90 degrees for vertical text
+            )
+
+    # Add a horizontal line at the point where n_features = d_hidden (in non-neuron plot). After this point,
+    # we must have superposition if we represent all features.
+    for annotation in fig.layout.annotations:
+        annotation.font.size = 13
+    if not neuron_plot:
+        fig.add_hline(
+            y=n_feats - d_hidden - 0.5,
+            line=dict(width=0.5),
+            opacity=1.0,
+            row=2,  # type: ignore
+            annotation_text=f" d_hidden={d_hidden}",
+            annotation_position="bottom left",  # "bottom"
+            annotation_font_size=11,
+        )
+
+    # fig.update_traces(marker_size=1)
+    fig.update_layout(
+        showlegend=False,
+        width=width,
+        height=height,
+        margin=dict(t=40 if title is None else 110, b=40, l=50, r=40),
+        plot_bgcolor="#eee",
+        title=title,
+        title_y=0.95,
+        # template="simple_white",
+    )
+
+    fig.update_xaxes(showticklabels=False, showgrid=False)  # visible=False
+    fig.update_yaxes(showticklabels=False, showgrid=False)
+
+    fig.show()
