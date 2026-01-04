@@ -212,7 +212,7 @@ def test_calculate_loss(Model):
     print("all tests in `test_calculate_loss` passed!")
 
 
-class NeuronModel_Solution(ToyModel):
+class NeuronModel_Solution(ToyModel_Solution):
     def forward(self, features: Float[Tensor, "... inst feats"]) -> Float[Tensor, "... inst feats"]:
         activations = F.relu(
             einops.einsum(
@@ -259,19 +259,19 @@ def test_neuron_model(neuron_model):
     print("all tests in `test_neuron_model` passed!")
 
 
-class NeuronComputationModel_Solution(ToyModel):
+class NeuronComputationModel_Solution(ToyModel_Solution):
     W1: Float[Tensor, "inst d_hidden feats"]
     W2: Float[Tensor, "inst feats d_hidden"]
     b_final: Float[Tensor, "inst feats"]
 
     def __init__(
         self,
-        cfg: ToyModelConfig,
+        cfg: ToyModelConfig_Solution,
         feature_probability: float | Tensor = 1.0,
         importance: float | Tensor = 1.0,
         device=device,
     ):
-        super(ToyModel, self).__init__()
+        super(ToyModel_Solution, self).__init__()
         self.cfg = cfg
 
         if isinstance(feature_probability, float):
@@ -330,7 +330,7 @@ class NeuronComputationModel_Solution(ToyModel):
 
 def test_neuron_computation_model(neuron_computation_model):
 
-    cfg = ToyModelConfig_Solutions(
+    cfg = ToyModelConfig_Solution(
         n_inst=10,
         n_features=5,
         d_hidden=2,
@@ -354,3 +354,4 @@ def test_neuron_computation_model(neuron_computation_model):
     t.testing.assert_close(out_soln, out)
 
     print("all tests in `test_neuron_computation_model` passed!")
+
