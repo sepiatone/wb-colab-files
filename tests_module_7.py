@@ -212,7 +212,54 @@ def test_calculate_loss(Model):
     print("all tests in `test_calculate_loss` passed!")
 
 
-class NeuronComputationModel(ToyModel):
+class NeuronModel_Solution(ToyModel):
+    def forward(self, features: Float[Tensor, "... inst feats"]) -> Float[Tensor, "... inst feats"]:
+        activations = F.relu(
+            einops.einsum(
+                features, self.W, "... inst feats, inst d_hidden feats -> ... inst d_hidden"
+            )
+        )
+        out = F.relu(
+            einops.einsum(
+                activations, self.W, "... inst d_hidden, inst d_hidden feats -> ... inst feats"
+            )
+            + self.b_final
+        )
+        return out
+
+
+def test_neuron_model(neuron_model):
+    
+    cfg = ToyModelConfig_Solution(
+        n_inst=10,
+        n_features=5,
+        d_hidden=2,
+    )
+
+    # Generate model from solutions & from your code
+    model_soln = NeuronModel_Solution(cfg)
+    model = neuron_model(cfg)
+    model.load_state_dict(model_soln.state_dict())
+
+    # Bias is initialized to zero, so we can't tell if it's been added to the forward pass. We will temporarily set it to random values to check if it's being used.
+    model.b_final.data = t.randn_like(model.b_final.data)
+    model_soln.b_final.data = model.b_final.data.clone()
+
+    # Run forward pass on same data for both models
+    batch = model_soln.generate_batch(100)
+    out_soln = model_soln(batch)
+    try:
+        out = model(batch)
+    except:
+        raise Exception("Error running forward pass on your model")
+
+    # Should get same results
+    t.testing.assert_close(out_soln, out)
+
+    print("all tests in `test_neuron_model` passed!")
+
+
+class NeuronComputationModel_Solution(ToyModel):
     W1: Float[Tensor, "inst d_hidden feats"]
     W2: Float[Tensor, "inst feats d_hidden"]
     b_final: Float[Tensor, "inst feats"]
