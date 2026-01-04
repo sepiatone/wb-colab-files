@@ -9,6 +9,7 @@ from jaxtyping import Float
 from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
 
 def to_numpy(tensor):
